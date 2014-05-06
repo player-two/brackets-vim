@@ -17,39 +17,48 @@ define(function (require, exports, module) {
         ProjectManager  = brackets.getModule("project/ProjectManager"),
 
         commandId   = "brackets-vim.toggle",
+        $editorHolder = $("#editor-holder"),
+        fileMenu    = Menus.getMenu(Menus.AppMenuBar.FILE_MENU),
         isEnabled   = true,
         isSplit     = false,
-        menu        = Menus.getMenu(Menus.AppMenuBar.FILE_MENU),
         rootPath    = "";
 
     /*
     TODO:
-    - split if multiple files start in working set
-    - divider bar for split view
+    - keybind file switching to Ctrl-w
     - add vim's mode to status bar
+    - fix bug where initial editor shows file that is not in the working set
     */
+
+    // Patch the esc key, which does not properly exit insert or visual mode in Brackets.
+    // This is likely due to Brackets, since the demo at codemirror.net/demo/vim.html works fine.
+    function handleEscKey(jqEvent, editor, event) {
+        if (event.type === "keydown" && event.keyCode === 27) {
+            var cm = editor._codeMirror,
+                vimState = cm.state.vim;
+
+            if (vimState.insertMode === true) {
+                CodeMirror.keyMap["vim-insert"].Esc(cm);
+                //CodeMirror.Vim.handleKey(cm, 'Ctrl-C');
+            } else if (vimState.visualMode === true) {
+                CodeMirror.Vim.handleKey(cm, "v");
+            }
+        }
+    }
 
     // Splits the UI so that two documents may be viewed at the same time.
     function split() {
-        var workingSet = DocumentManager.getWorkingSet();
-
-        if (workingSet.length !== 2 || isSplit === true) {
-            console.log(workingSet.length, isSplit);
-            return;
-        }
-
-        console.log('splitting');
-
         isSplit = true;
-        $(".CodeMirror").addClass("split-editor");
+        $editorHolder.addClass("split-view");
     }
 
     // Revert the UI back to a single-document view.
     function unsplit() {
         isSplit = false;
-        $(".CodeMirror").removeClass("split-editor");
+        $editorHolder.removeClass("split-view");
     }
 
+    // Update the active editor with the vim mode.
     function updateEditorMode() {
         var cm,
             activeEditor = EditorManager.getActiveEditor();
@@ -59,22 +68,6 @@ define(function (require, exports, module) {
         }
 
         cm = activeEditor._codeMirror;
-
-        // Patch the esc key, which does not properly exit insert or visual mode in Brackets.
-        // This is likely due to Brackets, since the demo at codemirror.net/demo/vim.html works fine.
-        function handleEscKey(jqEvent, editor, event) {
-            if (event.type === "keydown" && event.keyCode === 27) {
-                var cm = editor._codeMirror,
-                    vimState = cm.state.vim;
-
-                if (vimState.insertMode === true) {
-                    CodeMirror.keyMap["vim-insert"].Esc(cm);
-                    //CodeMirror.Vim.handleKey(cm, 'Ctrl-C');
-                } else if (vimState.visualMode === true) {
-                    CodeMirror.Vim.handleKey(cm, "v");
-                }
-            }
-        }
 
         if (isEnabled !== cm.getOption("vimMode")) {
             cm.setOption("vimMode", isEnabled);
@@ -88,6 +81,8 @@ define(function (require, exports, module) {
         //cm.on('vim-mode-change', handleModeChange);
     }
 
+    // Toggles vim functionality in the editor.
+    // This function is run by the menu item.
     function toggleVim(editor) {
         isEnabled = !isEnabled;
         CommandManager.get(commandId).setChecked(isEnabled);
@@ -114,8 +109,7 @@ define(function (require, exports, module) {
             CommandManager.execute("file.close");
 
             if (isSplit) {
-                isSplit = false;
-                $('.CodeMirror').removeClass('split-editor');
+                unsplit();
             }
         });
 
@@ -124,11 +118,19 @@ define(function (require, exports, module) {
         });
 
         CodeMirror.Vim.defineEx("vsplit", "vsp", function (cm, params) {
+            // Do nothing if already split.
             if (isSplit) {
                 return;
             }
 
-            CommandManager.execute("file.addToWorkingSet", {fullPath: rootPath + params.args[0]}).done(split);
+            var relativePath = params.args[0];
+
+            // Do not split the same file (Brackets will not allow it).
+            if (relativePath === EditorManager.getActiveEditor().document.file._name) {
+                return;
+            }
+
+            CommandManager.execute("file.addToWorkingSet", {fullPath: rootPath + relativePath}).done(split);
         });
     });
 
@@ -136,34 +138,26 @@ define(function (require, exports, module) {
     CommandManager.register("Enable Vim", commandId, toggleVim);
     CommandManager.get(commandId).setChecked(isEnabled);
 
-    // Doesn't work yet.
-    KeyBindingManager.addBinding("navigate.nextDoc", "Ctrl-w");
-
-    // Then create a menu item bound to the command
-    // The label of the menu item is the name we gave the command (see above)
-    menu.addMenuDivider();
-    menu.addMenuItem(commandId);
+    // Add the enable command to the file menu.
+    fileMenu.addMenuDivider();
+    fileMenu.addMenuItem(commandId);
 
     ExtensionUtils.loadStyleSheet(module, "main.css");
+
+    // Doesn't work yet.
+    //KeyBindingManager.addBinding("navigate.nextDoc", "Ctrl-w");
 
     $(ProjectManager).on("projectOpen", function (jqEvent, directory) {
         rootPath = directory._path;
 
-        // Ensure that at most two files are working when the project opens.
-        // Temporarily set to one until split on init is working.
+        // Ensure that at most one file is working when the project opens.
         var workingSet = DocumentManager.getWorkingSet();
         if (workingSet.length > 1) {
-            console.log(workingSet.length, "files open");
             DocumentManager.removeListFromWorkingSet(workingSet.slice(1));
         }
     });
 
     $(DocumentManager).on("currentDocumentChange", function () {
-        console.log('doc change');
         updateEditorMode();
-    });
-
-    AppInit.appReady(function () {
-        console.log('app ready');
     });
 });

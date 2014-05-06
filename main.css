@@ -1,11 +1,12 @@
-.split-editor{
+.split-view > .CodeMirror{
     width:50%;
     display:inline-block !important;
     vertical-align:top;
 }
 
-.split_editor:first-child{
-    border-right:1px solid #d0d0d0;
+.CodeMirror ~ .CodeMirror{
+    border-left:1px solid #d0d0d0;
+    margin-left:-1px;
 }
 
 .CodeMirror-dialog-bottom{
