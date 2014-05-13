@@ -16,20 +16,13 @@ define(function (require, exports, module) {
         Menus           = brackets.getModule("command/Menus"),
         ProjectManager  = brackets.getModule("project/ProjectManager"),
 
-        commandId   = "brackets-vim.toggle",
         $editorHolder = $("#editor-holder"),
+
+        commandId   = "brackets-vim.toggle",
         fileMenu    = Menus.getMenu(Menus.AppMenuBar.FILE_MENU),
         isEnabled   = true,
         isSplit     = false,
         projectRoot    = "";
-
-    /*
-    TODO:
-    - keybind file switching to Ctrl-w
-    - add vim's mode to status bar
-    - fix bug where initial editor shows file that is not in the working set
-    - consider leaving working set untouched, using :nth-child(n+1) to hide other files
-    */
 
     // Extend the vim command dialog to autocomplete filepaths with the tab key.
     function handleTabKey(jqEvent) {

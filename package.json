@@ -1,9 +1,9 @@
 {
-    "name": "megalord.brackets-vim",
-    "title": "Vim Keybindings",
-    "description": "Enable vim keybindings and some commands in Brackets.",
+    "name": "brackets-vim",
+    "title": "Brackets Vim",
+    "description": "Enable some vim keybindings and commands.",
     "homepage": "https://github.com/megalord/brackets-vim",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "author": "Jordan Griege (http://megalord.github.io)",
     "license": "MIT",
     "engines": {
