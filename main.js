@@ -15,8 +15,10 @@ define(function (require, exports, module) {
         KeyBindingManager = brackets.getModule("command/KeyBindingManager"),
         Menus           = brackets.getModule("command/Menus"),
         ProjectManager  = brackets.getModule("project/ProjectManager"),
+        StatusBar       = brackets.getModule("widgets/StatusBar"),
 
         $editorHolder = $("#editor-holder"),
+        $vimModeIndicator = $(document.createElement("div")).text("normal"),
 
         commandId   = "brackets-vim.toggle",
         fileMenu    = Menus.getMenu(Menus.AppMenuBar.FILE_MENU),
@@ -24,13 +26,29 @@ define(function (require, exports, module) {
         isSplit     = false,
         projectRoot    = "";
 
+    // Patch the esc key, which does not properly exit insert or visual mode in Brackets.
+    // This is likely due to Brackets, since the demo at codemirror.net/demo/vim.html works fine.
+    function handleEscKey(jqEvent, editor, event) {
+        if (event.type === "keydown" && event.keyCode === 27) {
+            var cm = editor._codeMirror,
+                vimState = cm.state.vim;
+
+            if (vimState.insertMode === true) {
+                CodeMirror.keyMap["vim-insert"].Esc(cm);
+                //CodeMirror.Vim.handleKey(cm, 'Ctrl-C');
+            } else if (vimState.visualMode === true) {
+                CodeMirror.Vim.handleKey(cm, "v");
+            }
+        }
+    }
+
     // Extend the vim command dialog to autocomplete filepaths with the tab key.
     function handleTabKey(jqEvent) {
         var args, dirs, inputElement, partialName, relativePath;
         if (event.keyCode === 9) {
             // Check if the vim dialog is focused.
             inputElement = document.activeElement;
-            if(inputElement.parentElement.classList.contains("CodeMirror-dialog-bottom")) {
+            if (inputElement.parentElement.classList.contains("CodeMirror-dialog-bottom")) {
                 // Prevent a focus change to the next input in the DOM.
                 jqEvent.preventDefault();
 
@@ -66,20 +84,8 @@ define(function (require, exports, module) {
         }
     }
 
-    // Patch the esc key, which does not properly exit insert or visual mode in Brackets.
-    // This is likely due to Brackets, since the demo at codemirror.net/demo/vim.html works fine.
-    function handleEscKey(jqEvent, editor, event) {
-        if (event.type === "keydown" && event.keyCode === 27) {
-            var cm = editor._codeMirror,
-                vimState = cm.state.vim;
-
-            if (vimState.insertMode === true) {
-                CodeMirror.keyMap["vim-insert"].Esc(cm);
-                //CodeMirror.Vim.handleKey(cm, 'Ctrl-C');
-            } else if (vimState.visualMode === true) {
-                CodeMirror.Vim.handleKey(cm, "v");
-            }
-        }
+    function handleVimModeChange(event) {
+        $vimModeIndicator.text(event.mode);
     }
 
     // Splits the UI so that two documents may be viewed at the same time.
@@ -93,6 +99,11 @@ define(function (require, exports, module) {
     function toggleVim(editor) {
         isEnabled = !isEnabled;
         CommandManager.get(commandId).setChecked(isEnabled);
+        if (isEnabled) {
+            $(document).on("keydown", handleTabKey);
+        } else {
+            $(document).off("keydown", handleTabKey);
+        }
         updateEditorMode();
     }
 
@@ -116,17 +127,14 @@ define(function (require, exports, module) {
         if (isEnabled !== cm.getOption("vimMode")) {
             cm.setOption("vimMode", isEnabled);
 
-            $(activeEditor).off("keyEvent", handleEscKey);
-            $(document).off("keydown", handleTabKey);
             if (isEnabled) {
-                $(document).on("keydown", handleTabKey);
+                cm.on("vim-mode-change", handleVimModeChange);
                 $(activeEditor).on("keyEvent", handleEscKey);
+            } else {
+                cm.off("vim-mode-change", handleVimModeChange);
+                $(activeEditor).off("keyEvent", handleEscKey);
             }
         }
-
-        /*cm.on('vim-mode-change', function (event) {
-            console.log(event.mode);
-        });*/
     }
 
     // Define all custom ex commands after the vim module is loaded.
@@ -177,12 +185,17 @@ define(function (require, exports, module) {
     // Register the enable command.
     CommandManager.register("Enable Vim", commandId, toggleVim);
     CommandManager.get(commandId).setChecked(isEnabled);
+    if (isEnabled) {
+        $(document).on("keydown", handleTabKey);
+    }
 
     // Add the enable command to the file menu.
     fileMenu.addMenuDivider();
     fileMenu.addMenuItem(commandId);
 
     ExtensionUtils.loadStyleSheet(module, "main.css");
+
+    StatusBar.addIndicator("vim-mode", $vimModeIndicator, true);
 
     // Doesn't work yet.
     //KeyBindingManager.addBinding("navigate.nextDoc", "Ctrl-w");

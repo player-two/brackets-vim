@@ -41,6 +41,5 @@ One of the features crucial to my vim usage was splitting the window using the :
 ## Future concerns
 
 * Allow :e and :vsp commands to create a new file.
-* Add vim's mode to the status bar (i.e. insert, normal, visual).
 * Fix display issues when a pane is open while splitting.
 * Add :sp support.
