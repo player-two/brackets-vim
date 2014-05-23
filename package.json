@@ -9,4 +9,5 @@
     "engines": {
         "brackets": ">=0.38.0"
     }
+    "keywords": ["vi","vim"]
 }

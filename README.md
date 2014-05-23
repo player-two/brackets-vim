@@ -1,10 +1,10 @@
 ## Brackets Vim
 
-This is a Brackets extension to enable and enhance the [CodeMirror vim keybindings](codemirror.net/demo/vim.html).
+This is a Brackets extension to enable and enhance the [CodeMirror vim keybindings](http://codemirror.net/demo/vim.html).
 
 ## How to use
 
-Use of the extension is controlled through the menu item labeled "Enable Vim" that has been added to the File menu.  If the item is checked, then you are a [real programmer](xkcd.com/378/).
+Use of the extension is controlled through the menu item labeled "Enable Vim" that has been added to the File menu.  If the item is checked, then you are a [real programmer](http://xkcd.com/378/).
 
 ## Keybindings
 
