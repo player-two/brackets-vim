@@ -1,15 +1,16 @@
-.split-view > .CodeMirror{
+.split-view > .CodeMirror {
     width:50%;
     display:inline-block !important;
     vertical-align:top;
 }
 
-.CodeMirror ~ .CodeMirror{
+.CodeMirror ~ .CodeMirror {
     border-left:1px solid #d0d0d0;
     margin-left:-1px;
 }
 
-.CodeMirror-dialog-bottom{
+/* These rules pertain to the vim dialog that pops up to enter commands. */
+.CodeMirror-dialog-bottom {
     position:relative;
     top:-30px;
     padding-left:50px;
@@ -17,16 +18,21 @@
     background-color:black;
 }
 
-.CodeMirror-dialog-bottom > span:first-child{
+.CodeMirror-dialog-bottom > span:first-child {
     font-size:1.5em;
 }
 
-.CodeMirror-dialog-bottom > input{
+.CodeMirror-dialog-bottom > input {
     background-color:black !important;
     color:white;
 }
 
-.CodeMirror-dialog-bottom > input:focus{
+.CodeMirror-dialog-bottom > input:focus {
     border:none;
     box-shadow:none;
+}
+
+/* CodeMirror gutters have a z-index of 3. */
+.bottom-panel {
+    z-index:4;
 }
