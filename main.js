@@ -188,6 +188,12 @@ define(function (require, exports, module) {
 
             CommandManager.execute('file.addToWorkingSet', {fullPath: projectRoot + relativePath}).done(split);
         });
+
+        CodeMirror.Vim.defineEx('unsplit', 'unsplit', function () {
+            if (isSplit) {
+                unsplit();
+            }
+        });
     });
 
     // Register the enable command.
@@ -216,6 +222,10 @@ define(function (require, exports, module) {
         if (workingSet.length > 1) {
             DocumentManager.removeListFromWorkingSet(workingSet.slice(1));
         }
+
+        DocumentManager.getDocumentForPath(workingSet[0]._path).done(function (document) {
+            DocumentManager.setCurrentDocument(document);
+        });
     });
 
     $(DocumentManager).on('currentDocumentChange', function () {
