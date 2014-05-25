@@ -20,10 +20,51 @@ define(function (require, exports, module) {
         $vimModeIndicator = $(document.createElement('div')).text('normal'),
 
         commandId   = 'brackets-vim.toggle',
+        currentParentPath,
         fileMenu    = Menus.getMenu(Menus.AppMenuBar.FILE_MENU),
         isEnabled   = true,
         isSplit     = false,
         projectRoot = '';
+
+    function createFile(filepath) {
+        /*console.log('creating ' + filepath);
+        //ProjectManager.createNewItem
+        FileSystem.resolve(filepath, function (err, item) {
+        });*/
+    }
+
+    function findMatch(directory, partialName, callback) {
+        var deferred = $.Deferred();
+
+        FileSystem.resolve(directory, function (notUsed, Directory) {
+            var match,
+                matchIsFound;
+
+            if (!Array.isArray(Directory._contents) || Directory._contents.length === 0) {
+                deferred.reject();
+                return;
+            }
+
+            matchIsFound = Directory._contents.some(function (item) {
+                var doesMatch = item._name.indexOf(partialName) === 0;
+                if (doesMatch) {
+                    match = item._name;
+                    if (item.hasOwnProperty('_isDirectory') && item._isDirectory) {
+                        match += '/';
+                    }
+                }
+                return doesMatch;
+            });
+
+            if (matchIsFound) {
+                deferred.resolve(match);
+            } else {
+                deferred.reject();
+            }
+        });
+
+        return deferred.promise();
+    }
 
     // Patch the esc key, which does not properly exit insert or visual mode in Brackets.
     // This is likely due to Brackets, since the demo at codemirror.net/demo/vim.html works fine.
@@ -43,7 +84,7 @@ define(function (require, exports, module) {
 
     // Extend the vim command dialog to autocomplete filepaths with the tab key.
     function handleTabKey(jqEvent) {
-        var args, dirs, fullPath, inputElement, partialName, relativePath;
+        var args, dirs, inputElement, partialName, relativeParentPath;
         if (event.keyCode === 9) {
             // Check if the vim dialog is focused.
             inputElement = document.activeElement;
@@ -60,40 +101,61 @@ define(function (require, exports, module) {
 
                 // The last element of the dirs array is (possibly) not an actual directory.
                 partialName = dirs.pop();
-                relativePath = dirs.join('/');
+                relativeParentPath = dirs.join('/');
 
-                // Ensure the last character of the path is a slash.
-                if (relativePath.length > 0) {
-                    relativePath += '/';
+                if (relativeParentPath !== '') {
+                    relativeParentPath += '/';
                 }
 
-                // Check to see if the path is relative to the current file (instead of the project root).
-                // This is denoted with the './' prefix.
-                if (relativePath.slice(0, 2) === './') {
-                    relativePath = EditorManager.getActiveEditor().document.file._parentPath.slice(projectRoot.length);
-                }
-
-                FileSystem.resolve(projectRoot + relativePath, function (notUsed, Directory) {
-                    var match = '';
-                    Directory._contents.forEach(function (item) {
-                        if (item._name.indexOf(partialName) === 0) {
-                            match = item._name;
-                            if (item.hasOwnProperty('_isDirectory') && item._isDirectory) {
-                                match += '/';
-                            }
-                        }
+                findMatch(resolvePath(relativeParentPath), partialName)
+                    .done(function (match) {
+                        inputElement.value = args[0] + ' ' + relativeParentPath + match;
                     });
-
-                    if (match.length > 0) {
-                        inputElement.value = args[0] + ' ' + relativePath + match;
-                    }
-                });
             }
         }
     }
 
     function handleVimModeChange(event) {
         $vimModeIndicator.text(event.mode);
+    }
+
+    function openFile(fullPath) {
+        var currentDocument = DocumentManager.getCurrentDocument();
+
+        // Do not open the current file.
+        if (currentDocument !== null && currentDocument.file._path === fullPath) {
+            return;
+        }
+
+        return CommandManager.execute('file.addToWorkingSet', {fullPath: fullPath})
+            .fail(function () {
+                createFile(fullPath);
+            });
+    }
+
+    // Transform a partial or relative path into a full path.
+    function resolvePath(path) {
+        var dirs = (currentParentPath + path).split('/'),
+            i = projectRoot.split('/').length - 1,
+            isDir = (path.slice(-1) === '/');
+
+        while (i < dirs.length) {
+            switch (dirs[i]) {
+                case '':
+                case '.':
+                    dirs.splice(i, 1);
+                    break;
+                case '..':
+                    dirs.splice(i - 1, 2);
+                    i -= 1;
+                    break;
+                default:
+                    i++;
+                    break;
+            }
+        }
+
+        return dirs.join('/') + (isDir ? '/' : '');
     }
 
     // Splits the UI so that two documents may be viewed at the same time.
@@ -157,7 +219,7 @@ define(function (require, exports, module) {
                 }, 200);
             } else {
                 CommandManager.execute('file.close');
-                CommandManager.execute('file.addToWorkingSet', {fullPath: projectRoot + params.args[0]});
+                openFile(resolvePath(params.args[0]));
             }
         });
 
@@ -179,14 +241,8 @@ define(function (require, exports, module) {
                 return;
             }
 
-            var relativePath = params.args[0];
-
-            // Do not split the same file (Brackets will not allow it).
-            if (relativePath === EditorManager.getActiveEditor().document.file._name) {
-                return;
-            }
-
-            CommandManager.execute('file.addToWorkingSet', {fullPath: projectRoot + relativePath}).done(split);
+            openFile(resolvePath(params.args[0]))
+                .done(split);
         });
 
         CodeMirror.Vim.defineEx('unsplit', 'unsplit', function () {
@@ -229,6 +285,10 @@ define(function (require, exports, module) {
     });
 
     $(DocumentManager).on('currentDocumentChange', function () {
+        var currentDocument = DocumentManager.getCurrentDocument();
+        if (currentDocument !== null) {
+            currentParentPath = currentDocument.file._parentPath;
+        }
         updateEditorMode();
     });
 });
