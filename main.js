@@ -7,6 +7,8 @@ define(function (require, exports, module) {
     var AppInit         = brackets.getModule('utils/AppInit'),
         CodeMirror      = brackets.getModule('thirdparty/CodeMirror2/lib/codemirror'),
         CommandManager  = brackets.getModule('command/CommandManager'),
+        DefaultDialogs  = brackets.getModule('widgets/DefaultDialogs'),
+        Dialogs         = brackets.getModule('widgets/Dialogs'),
         DocumentManager = brackets.getModule('document/DocumentManager'),
         EditorManager   = brackets.getModule('editor/EditorManager'),
         ExtensionUtils  = brackets.getModule('utils/ExtensionUtils'),
@@ -20,17 +22,31 @@ define(function (require, exports, module) {
         $vimModeIndicator = $(document.createElement('div')).text('normal'),
 
         commandId   = 'brackets-vim.toggle',
-        currentParentPath,
+        currentParentPath = '',
         fileMenu    = Menus.getMenu(Menus.AppMenuBar.FILE_MENU),
         isEnabled   = true,
         isSplit     = false,
         projectRoot = '';
 
     function createFile(filepath) {
-        /*console.log('creating ' + filepath);
-        //ProjectManager.createNewItem
-        FileSystem.resolve(filepath, function (err, item) {
-        });*/
+        var afterLastSlash = filepath.lastIndexOf('/') + 1,
+            filename = filepath.slice(afterLastSlash),
+            parentDir = filepath.slice(0, afterLastSlash);
+        return ProjectManager.createNewItem(parentDir, filename, true, false)
+            .fail(function () {
+                Dialogs.showModalDialog(
+                    DefaultDialogs.DIALOG_ID_ERROR,
+                    'Brackets-Vim: file creation error',
+                    'There was an error in the filepath of your vim command.  ' +
+                    'Make sure the destination directory of the file already exists.'
+                );
+            });
+    }
+
+    function doesFileExist(filepath, callback) {
+        FileSystem.resolve(filepath, function (error, item) {
+            callback(error === null);
+        });
     }
 
     function findMatch(directory, partialName, callback) {
@@ -120,17 +136,29 @@ define(function (require, exports, module) {
     }
 
     function openFile(fullPath) {
-        var currentDocument = DocumentManager.getCurrentDocument();
+        var currentDocument = DocumentManager.getCurrentDocument(),
+            deferred = $.Deferred();
+
+        function open() {
+            CommandManager.execute('file.addToWorkingSet', {fullPath: fullPath})
+                .done(deferred.resolve);
+        }
 
         // Do not open the current file.
         if (currentDocument !== null && currentDocument.file._path === fullPath) {
             return;
         }
 
-        return CommandManager.execute('file.addToWorkingSet', {fullPath: fullPath})
-            .fail(function () {
-                createFile(fullPath);
-            });
+        doesFileExist(fullPath, function(doesExist) {
+            if (doesExist) {
+                open();
+            } else {
+                createFile(fullPath)
+                    .done(open);
+            }
+        });
+
+        return deferred;
     }
 
     // Transform a partial or relative path into a full path.

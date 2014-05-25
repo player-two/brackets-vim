@@ -47,6 +47,5 @@ The first character of the path should not be a slash (/).
 
 ## Future concerns
 
-* Allow :e and :vsp commands to create a new file.
 * Fix display issues when a pane is open while splitting.
 * Add :sp support.
