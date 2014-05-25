@@ -305,6 +305,8 @@ define(function (require, exports, module) {
         var workingSet = DocumentManager.getWorkingSet();
         if (workingSet.length > 1) {
             DocumentManager.removeListFromWorkingSet(workingSet.slice(1));
+        } else if (workingSet.length === 0) {
+            return;
         }
 
         DocumentManager.getDocumentForPath(workingSet[0]._path).done(function (document) {
