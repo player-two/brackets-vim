@@ -3,7 +3,7 @@
     "title": "Brackets Vim",
     "description": "Enable some vim keybindings and commands.",
     "homepage": "https://github.com/megalord/brackets-vim",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "author": "Jordan Griege (http://megalord.github.io)",
     "license": "MIT",
     "engines": {

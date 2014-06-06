@@ -117,11 +117,7 @@ define(function (require, exports, module) {
 
                 // The last element of the dirs array is (possibly) not an actual directory.
                 partialName = dirs.pop();
-                relativeParentPath = dirs.join('/');
-
-                if (relativeParentPath !== '') {
-                    relativeParentPath += '/';
-                }
+                relativeParentPath = (dirs.length > 0) ? dirs.join('/') + '/' : '';
 
                 findMatch(resolvePath(relativeParentPath), partialName)
                     .done(function (match) {
@@ -149,7 +145,7 @@ define(function (require, exports, module) {
             return;
         }
 
-        doesFileExist(fullPath, function(doesExist) {
+        doesFileExist(fullPath, function (doesExist) {
             if (doesExist) {
                 open();
             } else {
@@ -161,15 +157,30 @@ define(function (require, exports, module) {
         return deferred;
     }
 
-    // Transform a partial or relative path into a full path.
+    // Transform a partial, relative, or full path into a full path.
     function resolvePath(path) {
-        var dirs = (currentParentPath + path).split('/'),
-            i = projectRoot.split('/').length - 1,
-            isDir = (path.slice(-1) === '/');
+        var dirs,
+            i = 0,
+            parent = '';
+
+        if (path[0] !== '/') {
+            if (path.slice(0, 2) === './' || path.slice(0, 3) === '../') {
+                parent = currentParentPath;
+            } else {
+                parent = projectRoot;
+            }
+        }
+
+        dirs = (parent + path).split('/');
 
         while (i < dirs.length) {
             switch (dirs[i]) {
                 case '':
+                    // Leave a preceding or trailing slash.
+                    if (i === 0 || i === dirs.length - 1) {
+                        i++;
+                        break;
+                    }
                 case '.':
                     dirs.splice(i, 1);
                     break;
@@ -183,7 +194,7 @@ define(function (require, exports, module) {
             }
         }
 
-        return dirs.join('/') + (isDir ? '/' : '');
+        return dirs.join('/');
     }
 
     // Splits the UI so that two documents may be viewed at the same time.
