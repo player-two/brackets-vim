@@ -38,3 +38,9 @@
 .bottom-panel {
     z-index:4;
 }
+
+/* Fixes https://github.com/megalord/brackets-vim/issues/2 */
+.CodeMirror.cm-keymap-fat-cursor div.CodeMirror-cursor {
+    z-index: 100 !important;
+    background: rgba(67, 216, 145, 0.5) !important;
+}
