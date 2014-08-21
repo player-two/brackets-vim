@@ -1,14 +1,3 @@
-.split-view > .CodeMirror {
-    width:50%;
-    display:inline-block !important;
-    vertical-align:top;
-}
-
-.CodeMirror ~ .CodeMirror {
-    border-left:1px solid #d0d0d0;
-    margin-left:-1px;
-}
-
 /* These rules pertain to the vim dialog that pops up to enter commands. */
 .CodeMirror-dialog-bottom {
     position:relative;

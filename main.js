@@ -14,18 +14,17 @@ define(function (require, exports, module) {
         ExtensionUtils  = brackets.getModule('utils/ExtensionUtils'),
         FileSystem      = brackets.getModule('filesystem/FileSystem'),
         KeyBindingManager = brackets.getModule('command/KeyBindingManager'),
+        MainViewManager = brackets.getModule('view/MainViewManager'),
         Menus           = brackets.getModule('command/Menus'),
         ProjectManager  = brackets.getModule('project/ProjectManager'),
         StatusBar       = brackets.getModule('widgets/StatusBar'),
 
-        $editorHolder = $('#editor-holder'),
         $vimModeIndicator = $(document.createElement('div')).text('normal'),
 
         commandId   = 'brackets-vim.toggle',
         currentParentPath = '',
         fileMenu    = Menus.getMenu(Menus.AppMenuBar.FILE_MENU),
         isEnabled   = true,
-        isSplit     = false,
         projectRoot = '';
 
     function createFile(filepath) {
@@ -109,7 +108,7 @@ define(function (require, exports, module) {
                 jqEvent.preventDefault();
 
                 args = jqEvent.target.value.split(' ');
-                if (args.length !== 2 || (args[0] !== 'e' && args[0] !== 'vsp')) {
+                if (args.length !== 2 || (args[0] !== 'e' && args[0] !== 'vsp' && args[0] !== 'sp')) {
                     return;
                 }
 
@@ -197,12 +196,6 @@ define(function (require, exports, module) {
         return dirs.join('/');
     }
 
-    // Splits the UI so that two documents may be viewed at the same time.
-    function split() {
-        isSplit = true;
-        $editorHolder.addClass('split-view');
-    }
-
     // Toggles vim functionality in the editor.
     // This function is run by the menu item.
     function toggleVim(editor) {
@@ -214,12 +207,6 @@ define(function (require, exports, module) {
             $(document).off('keydown', handleTabKey);
         }
         updateEditorMode();
-    }
-
-    // Revert the UI back to a single-document view.
-    function unsplit() {
-        isSplit = false;
-        $editorHolder.removeClass('split-view');
     }
 
     // Update the active editor with the vim mode.
@@ -246,6 +233,43 @@ define(function (require, exports, module) {
         }
     }
 
+    function closeActiveFile() {
+        return CommandManager.execute('file.close').fail(function () {
+            //TODO: implement warning in vim command bar
+        });
+    }
+    
+    function isViewSplit() {
+        return MainViewManager.getPaneCount() === 2;
+    }
+    
+    function unsplit() {
+        var layout = MainViewManager.getLayoutScheme();
+        if (layout.rows === 2) {
+            splitHorizontally();
+        }
+        if (layout.columns === 2 ) {
+            splitVertically();
+        }
+    }
+    
+    function splitHorizontally() {
+        CommandManager.execute('cmd.splitHorizontally');
+    }
+    
+    function splitVertically() {
+        CommandManager.execute('cmd.splitVertically');
+    }
+    
+    function prepareNewPane(filePath) {
+        $(MainViewManager).one('paneLayoutChange', function (jqEvent, orientation) {
+            if (orientation !== null) {
+                var file = FileSystem.getFileForPath(filePath);
+                MainViewManager.open('second-pane', file);
+            }
+        });
+    }
+    
     // Define all custom ex commands after the vim module is loaded.
     brackets.getModule(['thirdparty/CodeMirror2/keymap/vim'], function () {
         CodeMirror.Vim.defineEx('edit', 'e', function (cm, params) {
@@ -253,21 +277,23 @@ define(function (require, exports, module) {
                 // The timeout is used so that the enter key can be released before the quick open dialog is shown,
                 // preventing the first file in the dialog list from being immediately opened.
                 setTimeout(function () {
-                    CommandManager.execute('file.close');
-                    CommandManager.execute('navigate.quickOpen');
+                    closeActiveFile().done(function () {
+                        CommandManager.execute('navigate.quickOpen');
+                    });
                 }, 200);
             } else {
-                CommandManager.execute('file.close');
-                openFile(resolvePath(params.args[0]));
+                closeActiveFile().done(function () {
+                    openFile(resolvePath(params.args[0]));
+                });
             }
         });
 
         CodeMirror.Vim.defineEx('quit', 'q', function () {
-            CommandManager.execute('file.close');
-
-            if (isSplit) {
-                unsplit();
-            }
+            closeActiveFile().done(function () {
+                if (isViewSplit()) {
+                    unsplit();
+                }
+            });
         });
 
         CodeMirror.Vim.defineEx('write', 'w', function () {
@@ -276,18 +302,22 @@ define(function (require, exports, module) {
 
         CodeMirror.Vim.defineEx('vsplit', 'vsp', function (cm, params) {
             // Do nothing if already split.
-            if (isSplit) {
+            if (isViewSplit()) {
                 return;
             }
 
-            openFile(resolvePath(params.args[0]))
-                .done(split);
+            prepareNewPane(resolvePath(params.args[0]));
+            splitVertically();
         });
 
-        CodeMirror.Vim.defineEx('unsplit', 'unsplit', function () {
-            if (isSplit) {
-                unsplit();
+        CodeMirror.Vim.defineEx('split', 'sp', function (cm, params) {
+            // Do nothing if already split.
+            if (isViewSplit()) {
+                return;
             }
+
+            prepareNewPane(resolvePath(params.args[0]));
+            splitHorizontally();
         });
     });
 
