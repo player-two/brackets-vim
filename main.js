@@ -4,6 +4,8 @@
 define(function (require, exports, module) {
     'use strict';
 
+    require('autocomplete');
+
     var AppInit         = brackets.getModule('utils/AppInit'),
         CodeMirror      = brackets.getModule('thirdparty/CodeMirror2/lib/codemirror'),
         CommandManager  = brackets.getModule('command/CommandManager'),
@@ -19,13 +21,13 @@ define(function (require, exports, module) {
         ProjectManager  = brackets.getModule('project/ProjectManager'),
         StatusBar       = brackets.getModule('widgets/StatusBar'),
 
+        utils   = require('utils'),
+
         $vimModeIndicator = $(document.createElement('div')).text('normal'),
 
         commandId   = 'brackets-vim.toggle',
-        currentParentPath = '',
         fileMenu    = Menus.getMenu(Menus.AppMenuBar.FILE_MENU),
-        isEnabled   = true,
-        projectRoot = '';
+        isEnabled   = true;
 
     function createFile(filepath) {
         var afterLastSlash = filepath.lastIndexOf('/') + 1,
@@ -48,39 +50,6 @@ define(function (require, exports, module) {
         });
     }
 
-    function findMatch(directory, partialName, callback) {
-        var deferred = $.Deferred();
-
-        FileSystem.resolve(directory, function (notUsed, Directory) {
-            var match,
-                matchIsFound;
-
-            if (!Array.isArray(Directory._contents) || Directory._contents.length === 0) {
-                deferred.reject();
-                return;
-            }
-
-            matchIsFound = Directory._contents.some(function (item) {
-                var doesMatch = item._name.indexOf(partialName) === 0;
-                if (doesMatch) {
-                    match = item._name;
-                    if (item.hasOwnProperty('_isDirectory') && item._isDirectory) {
-                        match += '/';
-                    }
-                }
-                return doesMatch;
-            });
-
-            if (matchIsFound) {
-                deferred.resolve(match);
-            } else {
-                deferred.reject();
-            }
-        });
-
-        return deferred.promise();
-    }
-
     // Patch the esc key, which does not properly exit insert or visual mode in Brackets.
     // This is likely due to Brackets, since the demo at codemirror.net/demo/vim.html works fine.
     function handleEscKey(jqEvent, editor, event) {
@@ -93,35 +62,6 @@ define(function (require, exports, module) {
                 //CodeMirror.Vim.handleKey(cm, 'Ctrl-C');
             } else if (vimState.visualMode === true) {
                 CodeMirror.Vim.handleKey(cm, 'v');
-            }
-        }
-    }
-
-    // Extend the vim command dialog to autocomplete filepaths with the tab key.
-    function handleTabKey(jqEvent) {
-        var args, dirs, inputElement, partialName, relativeParentPath;
-        if (event.keyCode === 9) {
-            // Check if the vim dialog is focused.
-            inputElement = document.activeElement;
-            if (inputElement.parentElement.classList.contains('CodeMirror-dialog-bottom')) {
-                // Prevent a focus change to the next input in the DOM.
-                jqEvent.preventDefault();
-
-                args = jqEvent.target.value.split(' ');
-                if (args.length !== 2 || (args[0] !== 'e' && args[0] !== 'vsp' && args[0] !== 'sp')) {
-                    return;
-                }
-
-                dirs = args[1].split('/');
-
-                // The last element of the dirs array is (possibly) not an actual directory.
-                partialName = dirs.pop();
-                relativeParentPath = (dirs.length > 0) ? dirs.join('/') + '/' : '';
-
-                findMatch(resolvePath(relativeParentPath), partialName)
-                    .done(function (match) {
-                        inputElement.value = args[0] + ' ' + relativeParentPath + match;
-                    });
             }
         }
     }
@@ -156,56 +96,11 @@ define(function (require, exports, module) {
         return deferred;
     }
 
-    // Transform a partial, relative, or full path into a full path.
-    function resolvePath(path) {
-        var dirs,
-            i = 0,
-            parent = '';
-
-        if (path[0] !== '/') {
-            if (path.slice(0, 2) === './' || path.slice(0, 3) === '../') {
-                parent = currentParentPath;
-            } else {
-                parent = projectRoot;
-            }
-        }
-
-        dirs = (parent + path).split('/');
-
-        while (i < dirs.length) {
-            switch (dirs[i]) {
-                case '':
-                    // Leave a preceding or trailing slash.
-                    if (i === 0 || i === dirs.length - 1) {
-                        i++;
-                        break;
-                    }
-                case '.':
-                    dirs.splice(i, 1);
-                    break;
-                case '..':
-                    dirs.splice(i - 1, 2);
-                    i -= 1;
-                    break;
-                default:
-                    i++;
-                    break;
-            }
-        }
-
-        return dirs.join('/');
-    }
-
     // Toggles vim functionality in the editor.
     // This function is run by the menu item.
     function toggleVim(editor) {
         isEnabled = !isEnabled;
         CommandManager.get(commandId).setChecked(isEnabled);
-        if (isEnabled) {
-            $(document).on('keydown', handleTabKey);
-        } else {
-            $(document).off('keydown', handleTabKey);
-        }
         updateEditorMode();
     }
 
@@ -283,7 +178,7 @@ define(function (require, exports, module) {
                 }, 200);
             } else {
                 closeActiveFile().done(function () {
-                    openFile(resolvePath(params.args[0]));
+                    openFile(utils.resolvePath(params.args[0]));
                 });
             }
         });
@@ -306,7 +201,7 @@ define(function (require, exports, module) {
                 return;
             }
 
-            prepareNewPane(resolvePath(params.args[0]));
+            prepareNewPane(utils.resolvePath(params.args[0]));
             splitVertically();
         });
 
@@ -316,7 +211,7 @@ define(function (require, exports, module) {
                 return;
             }
 
-            prepareNewPane(resolvePath(params.args[0]));
+            prepareNewPane(utils.resolvePath(params.args[0]));
             splitHorizontally();
         });
     });
@@ -324,10 +219,6 @@ define(function (require, exports, module) {
     // Register the enable command.
     CommandManager.register('Enable Vim', commandId, toggleVim);
     CommandManager.get(commandId).setChecked(isEnabled);
-    if (isEnabled) {
-        $(document).on('keydown', handleTabKey);
-    }
-
     // Add the enable command to the file menu.
     fileMenu.addMenuDivider();
     fileMenu.addMenuItem(commandId);
@@ -340,8 +231,6 @@ define(function (require, exports, module) {
     //KeyBindingManager.addBinding('navigate.nextDoc', 'Ctrl-w');
 
     $(ProjectManager).on('projectOpen', function (jqEvent, directory) {
-        projectRoot = directory._path;
-
         // Ensure that at most one file is working when the project opens.
         var workingSet = DocumentManager.getWorkingSet();
         if (workingSet.length > 1) {
@@ -355,11 +244,5 @@ define(function (require, exports, module) {
         });
     });
 
-    $(DocumentManager).on('currentDocumentChange', function () {
-        var currentDocument = DocumentManager.getCurrentDocument();
-        if (currentDocument !== null) {
-            currentParentPath = currentDocument.file._parentPath;
-        }
-        updateEditorMode();
-    });
+    $(DocumentManager).on('currentDocumentChange', updateEditorMode);
 });
