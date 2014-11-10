@@ -7,7 +7,7 @@ define(function (require, exports, module) {
         FileSystem      = brackets.getModule('filesystem/FileSystem'),
         MainViewManager = brackets.getModule('view/MainViewManager'),
 
-        utils   = require('utils');
+        utils   = require('src/utils');
 
     function closeActiveFile() {
         return CommandManager.execute('file.close').fail(function () {

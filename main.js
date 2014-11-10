@@ -1,8 +1,8 @@
 define(function (require, exports, module) {
     'use strict';
 
-    require('autocomplete');
-    require('commands');
+    require('src/autocomplete');
+    require('src/commands');
 
     var CodeMirror      = brackets.getModule('thirdparty/CodeMirror2/lib/codemirror'),
         CommandManager  = brackets.getModule('command/CommandManager'),
@@ -20,22 +20,6 @@ define(function (require, exports, module) {
         commandId   = 'brackets-vim.toggle',
         fileMenu    = Menus.getMenu(Menus.AppMenuBar.FILE_MENU),
         isEnabled   = true;
-
-    // Patch the esc key, which does not properly exit insert or visual mode in Brackets.
-    // This is likely due to Brackets, since the demo at codemirror.net/demo/vim.html works fine.
-    function handleEscKey(jqEvent, editor, event) {
-        if (event.type === 'keydown' && event.keyCode === 27) {
-            var cm = editor._codeMirror,
-                vimState = cm.state.vim;
-
-            if (vimState.insertMode === true) {
-                CodeMirror.keyMap['vim-insert'].Esc(cm);
-                //CodeMirror.Vim.handleKey(cm, 'Ctrl-C');
-            } else if (vimState.visualMode === true) {
-                CodeMirror.Vim.handleKey(cm, 'v');
-            }
-        }
-    }
 
     function handleVimModeChange(event) {
         $vimModeIndicator.text(event.mode);
@@ -62,14 +46,7 @@ define(function (require, exports, module) {
 
         if (isEnabled !== cm.getOption('vimMode')) {
             cm.setOption('vimMode', isEnabled);
-
-            if (isEnabled) {
-                cm.on('vim-mode-change', handleVimModeChange);
-                $(activeEditor).on('keyEvent', handleEscKey);
-            } else {
-                cm.off('vim-mode-change', handleVimModeChange);
-                $(activeEditor).off('keyEvent', handleEscKey);
-            }
+            cm[isEnabled ? 'on' : 'off']('vim-mode-change', handleVimModeChange);
         }
     }
 

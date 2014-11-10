@@ -3,7 +3,7 @@ define(function (require, exports, module) {
 
     var FileSystem = brackets.getModule('filesystem/FileSystem'),
 
-        utils = require ('utils');
+        utils = require ('src/utils');
 
     function doFileCompletion(args) {
         if (args.length !== 2) {
