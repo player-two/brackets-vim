@@ -5,12 +5,14 @@ define(function (require, exports, module) {
     require('src/commands');
 
     var CodeMirror      = brackets.getModule('thirdparty/CodeMirror2/lib/codemirror'),
+        Commands        = brackets.getModule('command/Commands'),
         CommandManager  = brackets.getModule('command/CommandManager'),
         Dialogs         = brackets.getModule('widgets/Dialogs'),
         DocumentManager = brackets.getModule('document/DocumentManager'),
         EditorManager   = brackets.getModule('editor/EditorManager'),
         ExtensionUtils  = brackets.getModule('utils/ExtensionUtils'),
         KeyBindingManager = brackets.getModule('command/KeyBindingManager'),
+        MainViewManager = brackets.getModule('view/MainViewManager'),
         Menus           = brackets.getModule('command/Menus'),
         ProjectManager  = brackets.getModule('project/ProjectManager'),
         StatusBar       = brackets.getModule('widgets/StatusBar'),
@@ -64,16 +66,17 @@ define(function (require, exports, module) {
 
     $(ProjectManager).on('projectOpen', function (jqEvent, directory) {
         // Ensure that at most one file is working when the project opens.
-        var workingSet = DocumentManager.getWorkingSet();
+        var workingSet = MainViewManager.getWorkingSet();
         if (workingSet.length > 1) {
-            DocumentManager.removeListFromWorkingSet(workingSet.slice(1));
+            CommandManager.execute(Commands.FILE_CLOSE_LIST, {
+                PaneId: MainViewManager.ALL_PANES,
+                fileList: workingSet.slice(1)
+            });
         } else if (workingSet.length === 0) {
             return;
         }
 
-        DocumentManager.getDocumentForPath(workingSet[0]._path).done(function (doc) {
-            DocumentManager.setCurrentDocument(doc);
-        });
+        CommandManager.execute(Commands.CMD_ADD_TO_WORKINGSET_AND_OPEN, {fullPath: workingSet[0]._path});
     });
 
     $(DocumentManager).on('currentDocumentChange', updateEditorMode);
