@@ -6,16 +6,6 @@ This is a Brackets extension to enable and enhance the [CodeMirror vim keybindin
 
 Use of the extension is controlled through the menu item labeled "Enable Vim" that has been added to the File menu.  If the item is checked, then you are a [real programmer](http://xkcd.com/378/).
 
-## Keybindings
-
-Some vim keybindings may interfere with the default Brackets keybindings, in which case the Brackets keybinding will take precedence.  There is an extension, namely Brackets Key Remapper, that will allow you to remove these defaults.  Here are some bindings that I have changed:
-
-| Keybinding | Default function | Mapped to |
-| ---------- | ---------------- | --------- |
-| Ctrl-D     | duplicate        | none      |
-| Ctrl-Tab   | next document    | none      |
-| Ctrl-W     | close            | next document |
-
 ## Splitting
 
 One of the features crucial to my vim usage was splitting the window using the :vsp and :sp commands.  To replicate this in Brackets, the extension manages the Working Files list and the editor CSS.  As such, splitting causes issues when panes are opened in the editor (usually at the bottom of the window by use of an extension).
@@ -47,7 +37,3 @@ The first character of the path should not be a slash (/).
 | undo*     | :u        |
 
 *alias for "u" when in normal mode
-
-## Future concerns
-
-* Monitor Brackets' splitview - [issue 4](https://github.com/megalord/brackets-vim/issues/4)
