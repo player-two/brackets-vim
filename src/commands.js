@@ -2,6 +2,7 @@ define(function (require, exports, module) {
     'use strict';
 
     var CodeMirror      = brackets.getModule('thirdparty/CodeMirror2/lib/codemirror'),
+        Commands        = brackets.getModule('command/Commands'),
         CommandManager  = brackets.getModule('command/CommandManager'),
         DocumentManager = brackets.getModule('document/DocumentManager'),
         FileSystem      = brackets.getModule('filesystem/FileSystem'),
@@ -10,7 +11,7 @@ define(function (require, exports, module) {
         utils   = require('src/utils');
 
     function closeActiveFile() {
-        return CommandManager.execute('file.close').fail(function () {
+        return CommandManager.execute(Commands.FILE_CLOSE).fail(function () {
             //TODO: implement warning in vim command bar
         });
     }
@@ -45,7 +46,7 @@ define(function (require, exports, module) {
             deferred = $.Deferred();
 
         function open() {
-            CommandManager.execute('file.addToWorkingSet', {fullPath: fullPath})
+            CommandManager.execute(Commands.CMD_ADD_TO_WORKINGSET_AND_OPEN, {fullPath: fullPath})
                 .done(deferred.resolve);
         }
 
@@ -66,31 +67,24 @@ define(function (require, exports, module) {
         return deferred;
     }
 
-    function prepareNewPane(filePath) {
-        $(MainViewManager).one('paneLayoutChange', function (jqEvent, orientation) {
-            if (orientation !== null) {
-                var file = FileSystem.getFileForPath(filePath);
-                MainViewManager.open('second-pane', file);
-            }
+    function prepareNewPane(fullPath) {
+        $(MainViewManager).one('paneCreate', function (jqEvent, paneId) {
+            CommandManager.execute(Commands.CMD_ADD_TO_WORKINGSET_AND_OPEN, { fullPath: fullPath, paneId: paneId })
         });
     }
     
-    function splitHorizontally() {
-        CommandManager.execute('cmd.splitHorizontally');
+    function splitHorizontally(fullPath) {
+        prepareNewPane(fullPath);
+        CommandManager.execute(Commands.CMD_SPLITVIEW_HORIZONTAL);
     }
     
-    function splitVertically() {
-        CommandManager.execute('cmd.splitVertically');
+    function splitVertically(fullPath) {
+        prepareNewPane(fullPath);
+        CommandManager.execute(Commands.CMD_SPLITVIEW_VERTICAL);
     }
     
     function unsplit() {
-        var layout = MainViewManager.getLayoutScheme();
-        if (layout.rows === 2) {
-            splitHorizontally();
-        }
-        if (layout.columns === 2 ) {
-            splitVertically();
-        }
+        CommandManager.execute(Commands.CMD_SPLITVIEW_NONE);
     }
     
     // Define all custom ex commands after the vim module is loaded.
@@ -101,7 +95,7 @@ define(function (require, exports, module) {
                 // preventing the first file in the dialog list from being immediately opened.
                 setTimeout(function () {
                     closeActiveFile().done(function () {
-                        CommandManager.execute('navigate.quickOpen');
+                        CommandManager.execute(Commands.NAVIGATE_QUICK_OPEN);
                     });
                 }, 200);
             } else {
@@ -129,8 +123,7 @@ define(function (require, exports, module) {
                 return;
             }
 
-            prepareNewPane(utils.resolvePath(params.args[0]));
-            splitVertically();
+            splitVertically(utils.resolvePath(params.args[0]));
         });
 
         CodeMirror.Vim.defineEx('split', 'sp', function (cm, params) {
@@ -139,8 +132,7 @@ define(function (require, exports, module) {
                 return;
             }
 
-            prepareNewPane(utils.resolvePath(params.args[0]));
-            splitHorizontally();
+            splitHorizontally(utils.resolvePath(params.args[0]));
         });
     });
 
